@@ -39,14 +39,23 @@ bash skills/characteristic-voice/scripts/speak.sh \
 
 Sample outputs for quick listening (MP4 for inline playback):
 
-- Breaking news style  
-  <video src="./examples/audio/demo-breaking-news.mp4" controls></video>
+- Breaking news style
+https://github.com/user-attachments/assets/0c072964-ac62-47f6-8a3e-590b7df70b89
+
+
 - Mindful calm style  
-  <video src="./examples/audio/demo-mindful-calm.mp4" controls></video>
+https://github.com/user-attachments/assets/e0656f64-4fff-4915-8860-d65daa41f7c2
+
+
+
 - Podcast intro style  
-  <video src="./examples/audio/demo-podcast-intro.mp4" controls></video>
+https://github.com/user-attachments/assets/e2c15b98-86b8-4d34-80f2-bbca1534c8fe
+
+
 - Startup hype style  
-  <video src="./examples/audio/demo-startup-hype.mp4" controls></video>
+https://github.com/user-attachments/assets/a63c618b-c12a-4df0-9765-b54fd1980871
+
+
 
 ## Noiz API Key (recommended)
 
