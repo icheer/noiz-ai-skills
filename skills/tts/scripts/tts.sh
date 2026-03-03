@@ -3,7 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NOIZ_KEY_FILE="$HOME/.noiz_api_key"
-DEFAULT_NOIZ_REF_AUDIO_URL="https://storage.googleapis.com/noiz_audio_public/resource/audio/ref_cn_fm1.WAV"
+DEFAULT_NOIZ_REF_AUDIO_URL_CN="https://storage.googleapis.com/noiz_audio_public/resource/audio/ref_cn_fm1.WAV"
+DEFAULT_NOIZ_REF_AUDIO_URL_EN="https://noiz.ai/resource/img/tts/landing_creative1.mp3"
 
 usage() {
   cat <<'EOF'
@@ -14,7 +15,7 @@ Usage:
   tts.sh config [options]   — check / set NOIZ_API_KEY
 
 Examples:
-  tts.sh speak -t "Hello" -v af_sarah -o hello.wav
+  tts.sh speak -t "Hello" -v af_sarah -o hello.wav  # plays directly via system audio if no -o is provided
   tts.sh speak -f article.txt -v zf_xiaoni --lang cmn -o out.mp3
   tts.sh speak -t "Hi" --backend noiz --voice-id abc -o hi.wav
   tts.sh speak -t "Hi" --ref-audio ./my.wav -o clone.wav   # Noiz: own ref audio (path or URL)
@@ -137,6 +138,19 @@ except Exception:
 "
 }
 
+detect_text_lang() {
+  local sample="$1"
+  python3 - "$sample" <<'PY'
+import sys, re
+text = sys.argv[1]
+# CJK Unified Ideographs + Extension A/B cover virtually all Chinese characters
+if re.search(r'[\u4e00-\u9fff\u3400-\u4dbf]', text):
+    print('cmn')
+else:
+    print('en')
+PY
+}
+
 prepare_ref_audio() {
   local ref_audio_input="$1"
   if [[ "$ref_audio_input" =~ ^https?:// ]]; then
@@ -156,6 +170,7 @@ cmd_speak() {
   local text="" text_file="" voice="" voice_id="" output="" format="wav"
   local lang="" speed="" emo="" duration="" backend_flag="" ref_audio=""
   local auto_emotion=false similarity_enh=false save_voice=false
+  local play_mode=false tmp_output=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -180,7 +195,9 @@ cmd_speak() {
   done
 
   if [[ -z "$output" ]]; then
-    echo "Error: --output (-o) is required." >&2; exit 1
+    play_mode=true
+    tmp_output="$(mktemp /tmp/tts_play.XXXXXX.wav)"
+    output="$tmp_output"
   fi
   if [[ -z "$text" && -z "$text_file" ]]; then
     echo "Error: --text (-t) or --text-file (-f) is required." >&2; exit 1
@@ -231,7 +248,20 @@ cmd_speak() {
 
     if [[ -z "$voice_id" && -z "$ref_audio" ]]; then
       # Prefer a stable reference voice for daily cloning-style usage.
-      ref_audio="$DEFAULT_NOIZ_REF_AUDIO_URL"
+      # Honour explicit --lang; otherwise detect from text content.
+      local _ref_lang="$lang"
+      if [[ -z "$_ref_lang" ]]; then
+        local _sample="$text"
+        if [[ -z "$_sample" && -n "$text_file" ]]; then
+          _sample="$(head -c 500 "$text_file")"
+        fi
+        _ref_lang="$(detect_text_lang "$_sample")"
+      fi
+      if [[ "$_ref_lang" == "cmn" ]]; then
+        ref_audio="$DEFAULT_NOIZ_REF_AUDIO_URL_CN"
+      else
+        ref_audio="$DEFAULT_NOIZ_REF_AUDIO_URL_EN"
+      fi
       echo "[noiz] Using default reference audio: $ref_audio" >&2
     fi
     if [[ -n "$ref_audio" && "$ref_audio" =~ ^https?:// ]]; then
@@ -259,6 +289,23 @@ cmd_speak() {
 
     "${cmd[@]}"
     [[ -n "$downloaded_ref_audio" ]] && rm -f "$downloaded_ref_audio"
+  fi
+
+  if $play_mode; then
+    local player=""
+    if command -v afplay &>/dev/null; then
+      player="afplay"
+    elif command -v aplay &>/dev/null; then
+      player="aplay"
+    elif command -v paplay &>/dev/null; then
+      player="paplay"
+    else
+      echo "[tts] No audio player found (tried afplay, aplay, paplay). Audio saved to: $output" >&2
+      return 0
+    fi
+    echo "[tts] Playing audio..." >&2
+    "$player" "$output"
+    rm -f "$tmp_output"
   fi
 }
 
