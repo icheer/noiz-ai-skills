@@ -42,15 +42,22 @@ if [[ ! -f "$AUDIO" ]]; then
   exit 1
 fi
 
-# Use ffmpeg to replace the audio track
-# -map 0:v : take video from the first input
-# -map 1:a : take audio from the second input
-# -c:v copy : copy video codec without re-encoding
-# -c:a aac : encode audio to AAC (standard for MP4)
-# -shortest : end output when the shortest input ends
-echo "Replacing audio in $VIDEO with $AUDIO -> $OUTPUT"
+# Use ffmpeg to mix the dubbed audio with the original audio track.
+# We keep the original video's audio (music, ambience, SFX, etc.) and
+# duck it under the dubbed voice wherever the TTS audio is present.
+# This relies on the dubbed audio being timeline-aligned to the
+# original subtitles (i.e., silent outside subtitle ranges).
+echo "Merging original audio from $VIDEO with dubbed track $AUDIO -> $OUTPUT"
+
+# 0.15s fade-in at start reduces clicks; optional fade-out would require duration.
 ffmpeg -y -i "$VIDEO" -i "$AUDIO" \
-  -map 0:v:0 -map 1:a:0 \
+  -filter_complex "\
+    [0:a]aformat=channel_layouts=stereo[a0]; \
+    [1:a]aformat=channel_layouts=stereo[a1]; \
+    [a0][a1]sidechaincompress=threshold=-21dB:ratio=5:attack=5:release=250:makeup=0:mix=0.0[a_orig_ducked]; \
+    [a_orig_ducked][a1]amix=inputs=2:weights=1 1[amix]; \
+    [amix]afade=t=in:st=0:d=0.15[aout]" \
+  -map 0:v:0 -map "[aout]" \
   -c:v copy -c:a aac -b:a 192k \
   -shortest \
   "$OUTPUT"

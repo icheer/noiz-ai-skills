@@ -57,8 +57,9 @@ When the user asks to translate a video:
    bash skills/tts/scripts/tts.sh render --srt translated.srt --voice-map voice_map.json --backend noiz --auto-emotion --ref-audio-track original_video.mp4 -o dubbed.wav
    ```
 
-4. **Replace Audio in Video**:
-   Use the `replace_audio.sh` script to merge the original video with the new dubbed audio.
+4. **Replace / Mix Audio in Video**:
+   Use the `replace_audio.sh` script to merge the original video with the new dubbed audio.  
+   The script keeps the original video's **non-speech audio** (music, ambience, SFX, etc.) for regions outside subtitle timestamps, and ducks it under the dubbed voice only where the TTS track is present (subtitle-aligned). A short **fade-in** (0.15s) at the start is applied to reduce clicks; per-segment fade-in/out at each subtitle boundary is optional and can be added later if needed.
    ```bash
    bash skills/video-translation/scripts/replace_audio.sh --video original_video.mp4 --audio dubbed.wav --output final_video.mp4
    ```
@@ -87,7 +88,7 @@ When the user asks to translate a video:
     Install: clone or copy the `skills/youtube-downloader` directory from [crazynomad/skills](https://github.com/crazynomad/skills) into your `skills/` folder so that `skills/youtube-downloader/scripts/download_video.py` is available.
   - **tts** ([NoizAI/skills](https://github.com/NoizAI/skills)) — [SKILL.md](https://github.com/NoizAI/skills/blob/main/skills/tts/SKILL.md)  
     If not already in this repo: clone or copy the `skills/tts` directory from [NoizAI/skills](https://github.com/NoizAI/skills) into your `skills/` folder. Ensure `skills/tts/scripts/tts.sh` and related scripts are present.
-- `NOIZ_API_KEY` configured: `bash skills/tts/scripts/tts.sh config --set-api-key YOUR_KEY`
+- `NOIZ_API_KEY` configured for the Noiz backend. If it is not set, first guide the user to get an API key from `https://developers.noiz.ai`. After the user provides the key, ask whether they want to persist it; if they agree, either write/update `NOIZ_API_KEY=...` in the project's `.env` file or run `bash skills/tts/scripts/tts.sh config --set-api-key YOUR_KEY` to store it.
 - `ffmpeg` installed.
 
 ## Limitations
