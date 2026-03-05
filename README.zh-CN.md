@@ -31,7 +31,7 @@ npx skills add . --list --full-depth
 | 名称 | 说明 | 文档 | 可运行命令 |
 |------|------|------|------------|
 | tts | 将文本转为语音，支持 Kokoro / Noiz：简单模式、时间轴精确渲染、精确时长控制与参考音频音色克隆。 | [SKILL.md](./skills/tts/SKILL.md) | `npx skills add NoizAI/skills --full-depth --skill tts -y` |
-| chat-with-anyone | 用目标人物（真实人物或虚构角色）的声音进行对话：自动在线寻找其语音、提取干净参考样本，并生成语音回复。 | [SKILL.md](./skills/chat-with-anyone/SKILL.md) | `npx skills add NoizAI/skills --full-depth --skill chat-with-anyone -y` |
+| chat-with-anyone | 使用任何角色（真实人物或虚构角色）的声音进行对话：自动在线寻找其语音、提取干净参考样本，并生成语音回复。 | [SKILL.md](./skills/chat-with-anyone/SKILL.md) | `npx skills add NoizAI/skills --full-depth --skill chat-with-anyone -y` |
 | characteristic-voice | 通过语气词、情绪参数和场景预设，让生成语音更有陪伴感和人格化表达。 | [SKILL.md](./skills/characteristic-voice/SKILL.md) | `npx skills add NoizAI/skills --full-depth --skill characteristic-voice -y` |
 | video-translation | 将视频语音翻译成另一种语言，用 TTS 生成配音并替换原始音轨，同时保留视频画面。 | [SKILL.md](./skills/video-translation/SKILL.md) | `npx skills add NoizAI/skills --full-depth --skill video-translation -y` |
 
