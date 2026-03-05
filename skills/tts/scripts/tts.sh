@@ -159,7 +159,7 @@ import sys, re
 text = sys.argv[1]
 # CJK Unified Ideographs + Extension A/B cover virtually all Chinese characters
 if re.search(r'[\u4e00-\u9fff\u3400-\u4dbf]', text):
-    print('cmn')
+    print('zh')
 else:
     print('en')
 PY
@@ -271,7 +271,7 @@ cmd_speak() {
         fi
         _ref_lang="$(detect_text_lang "$_sample")"
       fi
-      if [[ "$_ref_lang" == "cmn" ]]; then
+      if [[ "$_ref_lang" == "zh" ]]; then
         ref_audio="$DEFAULT_NOIZ_REF_AUDIO_URL_CN"
       else
         ref_audio="$DEFAULT_NOIZ_REF_AUDIO_URL_EN"

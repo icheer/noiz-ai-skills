@@ -96,3 +96,13 @@ For skill authoring rules, directory conventions, and PR guidance, see `CONTRIBU
 
 ## Feedback & Discussion
 [Join discord](https://discord.gg/kKqKnmCCPq)
+
+## Project Trends
+
+### GitHub Star Trend
+
+[![Star History Chart](https://api.star-history.com/svg?repos=NoizAI/skills&type=Date)](https://star-history.com/#NoizAI/skills&Date)
+
+### Git Clone Trend
+
+[![Git Clone Trend](./Clones.png)]()
