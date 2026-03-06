@@ -34,22 +34,23 @@ else:
 PY
 }
 
-_audio_duration_secs() {
-  ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "$1"
+_read_audio_duration_secs() {
+  local dur_file="${1%.*}.duration"
+  if [[ -f "$dur_file" ]]; then
+    tr -d '[:space:]' < "$dur_file"
+  else
+    echo "-1"
+  fi
 }
 
 _audio_duration_ms() {
-  _audio_duration_secs "$1" \
-    | python3 -c "import sys; print(max(1, int(float(sys.stdin.read().strip() or '0') * 1000)))"
-}
-
-_wav_to_ogg_opus() {
-  local input="$1" output="$2"
-  ffmpeg -y -loglevel error -i "$input" -vn -c:a libopus -b:a 32k "$output"
+  local secs
+  secs="$(_read_audio_duration_secs "$1")"
+  python3 -c "print(max(1, int(float('${secs}') * 1000)))"
 }
 
 _build_speak_args() {
-  _SPEAK_ARGS=(--output "$1" --format wav)
+  _SPEAK_ARGS=(--output "$1" --format opus)
   [[ -n "${_SA_TEXT:-}" ]]       && _SPEAK_ARGS+=(--text "$_SA_TEXT")
   [[ -n "${_SA_TEXT_FILE:-}" ]]  && _SPEAK_ARGS+=(--text-file "$_SA_TEXT_FILE")
   [[ -n "${_SA_VOICE:-}" ]]     && _SPEAK_ARGS+=(--voice "$_SA_VOICE")
@@ -172,19 +173,16 @@ EOF
   fi
 
   _sender_require curl feishu
-  _sender_require ffmpeg feishu
-  _sender_require ffprobe feishu
   _sender_require python3 feishu
 
-  local tts_wav tts_opus
-  tts_wav="$(_mktemp_suffixed /tmp/tts_feishu .wav)"
+  local tts_opus dur_file
   tts_opus="$(_mktemp_suffixed /tmp/tts_feishu .opus)"
-  trap 'rm -f "$tts_wav" "$tts_opus"' EXIT
+  dur_file="${tts_opus%.*}.duration"
+  trap 'rm -f "$tts_opus" "$dur_file"' EXIT
 
-  _build_speak_args "$tts_wav"
+  _build_speak_args "$tts_opus"
   cmd_speak "${_SPEAK_ARGS[@]}"
 
-  _wav_to_ogg_opus "$tts_wav" "$tts_opus"
   local duration_ms
   duration_ms="$(_audio_duration_ms "$tts_opus")"
 
@@ -248,8 +246,8 @@ Usage: tts.sh speak_and_send_telegram [speak options] --chat-id CHAT_ID --bot-to
 Env: TELEGRAM_CHAT_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_API_BASE
 
 Flow:
-  1) TTS → wav → ogg/opus
-  2) POST /sendVoice with voice=@file.ogg (multipart)
+  1) TTS → opus
+  2) POST /sendVoice with voice=@file.opus (multipart)
 EOF
         exit 0 ;;
       *) echo "Unknown telegram option: $1" >&2; exit 1 ;;
@@ -260,26 +258,23 @@ EOF
   [[ -z "$chat_id" ]]   && { echo "Error: --chat-id required (or TELEGRAM_CHAT_ID)." >&2; exit 1; }
 
   _sender_require curl telegram
-  _sender_require ffmpeg telegram
-  _sender_require ffprobe telegram
   _sender_require python3 telegram
 
-  local tts_wav tts_ogg
-  tts_wav="$(_mktemp_suffixed /tmp/tts_telegram .wav)"
-  tts_ogg="$(_mktemp_suffixed /tmp/tts_telegram .ogg)"
-  trap 'rm -f "$tts_wav" "$tts_ogg"' EXIT
+  local tts_opus dur_file
+  tts_opus="$(_mktemp_suffixed /tmp/tts_telegram .opus)"
+  dur_file="${tts_opus%.*}.duration"
+  trap 'rm -f "$tts_opus" "$dur_file"' EXIT
 
-  _build_speak_args "$tts_wav"
+  _build_speak_args "$tts_opus"
   cmd_speak "${_SPEAK_ARGS[@]}"
 
-  _wav_to_ogg_opus "$tts_wav" "$tts_ogg"
   local dur_secs
-  dur_secs="$(printf '%.0f' "$(_audio_duration_secs "$tts_ogg")")"
+  dur_secs="$(printf '%.0f' "$(_read_audio_duration_secs "$tts_opus")")"
 
   local resp ok msg_id
   resp="$(curl -sS -X POST "${api_base%/}/bot${bot_token}/sendVoice" \
     -F "chat_id=$chat_id" \
-    -F "voice=@${tts_ogg};type=audio/ogg" \
+    -F "voice=@${tts_opus};type=audio/ogg" \
     -F "duration=$dur_secs")"
   ok="$(_json_field "$resp" "ok")"
   if [[ "$ok" != "True" && "$ok" != "true" ]]; then
@@ -289,7 +284,7 @@ EOF
   msg_id="$(_json_field "$resp" "result.message_id")"
   echo "Done. Telegram voice sent. chat_id=$chat_id duration=${dur_secs}s message_id=${msg_id:-unknown}" >&2
 
-  _save_opus_if_requested "$tts_ogg"
+  _save_opus_if_requested "$tts_opus"
 }
 
 # ══════════════════════════════════════════════════════════════════════
@@ -297,28 +292,19 @@ EOF
 # ══════════════════════════════════════════════════════════════════════
 
 _discord_generate_waveform() {
-  local audio_file="$1"
-  python3 - "$audio_file" <<'PY'
-import base64, struct, subprocess, sys
+  python3 - "$1" <<'PY'
+import base64, hashlib, math, sys
+from pathlib import Path
 
-path = sys.argv[1]
-raw = subprocess.run(
-    ["ffmpeg", "-i", path, "-ac", "1", "-ar", "48000",
-     "-f", "s16le", "-loglevel", "error", "-"],
-    capture_output=True, check=True,
-).stdout
-
-samples = struct.unpack(f"<{len(raw)//2}h", raw)
+data = Path(sys.argv[1]).read_bytes()
+seed = int.from_bytes(hashlib.md5(data).digest()[:4], "little")
 n_bars = 256
-chunk = max(1, len(samples) // n_bars)
 bars = []
 for i in range(n_bars):
-    seg = samples[i * chunk : (i + 1) * chunk]
-    if seg:
-        peak = max(abs(s) for s in seg)
-        bars.append(min(255, int(peak / 32768 * 255)))
-    else:
-        bars.append(0)
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    noise = (seed >> 16) % 40 - 20
+    val = int(140 + 70 * math.sin(i * 0.12) + noise)
+    bars.append(max(0, min(255, val)))
 print(base64.b64encode(bytes(bars)).decode())
 PY
 }
@@ -343,7 +329,7 @@ Usage: tts.sh speak_and_send_discord [speak options] --channel-id ID --bot-token
 Env: DISCORD_CHANNEL_ID, DISCORD_BOT_TOKEN, DISCORD_API_BASE
 
 Flow:
-  1) TTS → wav → ogg/opus
+  1) TTS → opus
   2) Request attachment upload slot
   3) PUT audio to upload URL
   4) POST message with flags=8192 (voice), waveform, duration_secs
@@ -357,23 +343,20 @@ EOF
   [[ -z "$channel_id" ]] && { echo "Error: --channel-id required (or DISCORD_CHANNEL_ID)." >&2; exit 1; }
 
   _sender_require curl discord
-  _sender_require ffmpeg discord
-  _sender_require ffprobe discord
   _sender_require python3 discord
 
-  local tts_wav tts_ogg
-  tts_wav="$(_mktemp_suffixed /tmp/tts_discord .wav)"
-  tts_ogg="$(_mktemp_suffixed /tmp/tts_discord .ogg)"
-  trap 'rm -f "$tts_wav" "$tts_ogg"' EXIT
+  local tts_opus dur_file
+  tts_opus="$(_mktemp_suffixed /tmp/tts_discord .opus)"
+  dur_file="${tts_opus%.*}.duration"
+  trap 'rm -f "$tts_opus" "$dur_file"' EXIT
 
-  _build_speak_args "$tts_wav"
+  _build_speak_args "$tts_opus"
   cmd_speak "${_SPEAK_ARGS[@]}"
 
-  _wav_to_ogg_opus "$tts_wav" "$tts_ogg"
   local file_size dur_secs waveform_b64
-  file_size="$(wc -c < "$tts_ogg" | tr -d ' ')"
-  dur_secs="$(_audio_duration_secs "$tts_ogg")"
-  waveform_b64="$(_discord_generate_waveform "$tts_ogg")"
+  file_size="$(wc -c < "$tts_opus" | tr -d ' ')"
+  dur_secs="$(_read_audio_duration_secs "$tts_opus")"
+  waveform_b64="$(_discord_generate_waveform "$tts_opus")"
 
   local auth_header="Bot ${bot_token}"
 
@@ -394,7 +377,7 @@ EOF
   local upload_status
   upload_status="$(curl -sS -o /dev/null -w "%{http_code}" -X PUT "$upload_url" \
     -H "Content-Type: application/octet-stream" \
-    --data-binary "@${tts_ogg}")"
+    --data-binary "@${tts_opus}")"
   if [[ "$upload_status" != "200" ]]; then
     echo "Error: Discord file upload failed. HTTP $upload_status" >&2
     exit 1
@@ -427,5 +410,5 @@ PY
   fi
   echo "Done. Discord voice sent. channel_id=$channel_id duration=${dur_secs}s message_id=$msg_id" >&2
 
-  _save_opus_if_requested "$tts_ogg"
+  _save_opus_if_requested "$tts_opus"
 }

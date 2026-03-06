@@ -121,7 +121,9 @@ def synthesize(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(resp.content)
     dur = resp.headers.get("X-Audio-Duration")
-    return float(dur) if dur else -1.0
+    duration_val = float(dur) if dur else -1.0
+    out_path.with_suffix(".duration").write_text(str(duration_val))
+    return duration_val
 
 
 def main() -> int:
@@ -134,7 +136,7 @@ def main() -> int:
     parser.add_argument("--reference-audio", help="Local audio for voice cloning")
     parser.add_argument("--output", required=True)
     parser.add_argument("--base-url", default="https://noiz.ai/v1")
-    parser.add_argument("--output-format", choices=["wav", "mp3"], default="wav")
+    parser.add_argument("--output-format", choices=["wav", "mp3", "opus"], default="wav")
     parser.add_argument("--auto-emotion", action="store_true")
     parser.add_argument("--emo", help='Emotion JSON string, e.g. \'{"Joy":0.5}\'')
     parser.add_argument("--speed", type=float, default=1.0)
