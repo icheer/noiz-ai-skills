@@ -1,7 +1,9 @@
+---
 name: daily-news-caster
 description: Fetches the latest news using news-aggregator-skill, formats it into a podcast script in Markdown format, and uses the tts skill to generate a podcast audio file. Use when the user asks to get the latest news and read it out as a podcast.
+---
 
-# Podcast News Skill
+# Daily News Caster Skill
 
 This skill allows the agent to fetch real-time news, organize it into a conversational podcast script, and generate an audio file reading the script out loud.
 
