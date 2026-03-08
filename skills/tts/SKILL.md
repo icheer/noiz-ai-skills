@@ -17,37 +17,23 @@ Convert any text into speech audio. Supports two backends (Kokoro local, Noiz cl
 
 ## Simple Mode — text to audio
 
+`speak` is the default — the subcommand can be omitted:
+
 ```bash
-# speak (auto-detected when installed)
-bash skills/tts/scripts/tts.sh speak -t "Hello world" # add -o path if you need to store result for later usage
-bash skills/tts/scripts/tts.sh speak -f article.txt -o out.mp3
+# Basic usage (speak is implicit)
+python3 skills/tts/scripts/tts.py -t "Hello world"          # add -o path to save
+python3 skills/tts/scripts/tts.py -f article.txt -o out.mp3
 
-# Voice cloning
-# Use your own reference audio: local file path or URL.
-bash skills/tts/scripts/tts.sh speak -t "Hello" --ref-audio ./ref.wav
-bash skills/tts/scripts/tts.sh speak -t "Hello" --ref-audio https://example.com/my_voice.wav -o clone.wav
+# Voice cloning — local file path or URL
+python3 skills/tts/scripts/tts.py -t "Hello" --ref-audio ./ref.wav
+python3 skills/tts/scripts/tts.py -t "Hello" --ref-audio https://example.com/my_voice.wav -o clone.wav
 
-# Telegram — sends opus via sendVoice
-bash skills/tts/scripts/tts.sh speak_and_send_telegram \
-  -t "Hello"
-
-# Discord — 3-step upload + voice message (flags=8192)
-bash skills/tts/scripts/tts.sh speak_and_send_discord \
-  -t "Hello"
-
-# Feishu — uploads opus, sends msg_type=audio
-bash skills/tts/scripts/tts.sh speak_and_send_feishu \
-  -t "你好呀"
-
+# Voice message format
+python3 skills/tts/scripts/tts.py -t "Hello" --format opus -o voice.opus
+python3 skills/tts/scripts/tts.py -t "Hello" --format ogg -o voice.ogg
 ```
 
-All three senders read credentials from env variables first.
-
-| Platform | Env variables | CLI Params | 
-|----------|--------------|--------------|
-| Feishu   | `FEISHU_APP_ID`, `FEISHU_APP_SECRET`, `FEISHU_CHAT_ID`, `FEISHU_TENANT_ACCESS_TOKEN` |  `chat-id` `app-id` `app-secret` |
-| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `chat-id` `bot-token` |
-| Discord  | `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` | `channel-id` `bot-token` |
+Third-party integration (Feishu/Telegram/Discord) is documented in [ref_3rd_party.md](ref_3rd_party.md).
 
 ## Timeline Mode — SRT to time-aligned audio
 
@@ -58,8 +44,8 @@ For precise per-segment timing (dubbing, subtitles, video narration).
 If the user doesn't have one, generate from text:
 
 ```bash
-bash skills/tts/scripts/tts.sh to-srt -i article.txt -o article.srt
-bash skills/tts/scripts/tts.sh to-srt -i article.txt -o article.srt --cps 15 --gap 500
+python3 skills/tts/scripts/tts.py to-srt -i article.txt -o article.srt
+python3 skills/tts/scripts/tts.py to-srt -i article.txt -o article.srt --cps 15 --gap 500
 ```
 
 `--cps` = characters per second (default 4, good for Chinese; ~15 for English). The agent can also write SRT manually.
@@ -95,7 +81,7 @@ Noiz voice map (adds `emo`, `reference_audio` support). `reference_audio` can be
 **Dynamic Reference Audio Slicing**:
 If you are translating or dubbing a video and want each sentence to automatically use the audio from the original video at the exact same timestamp as its reference audio, use the `--ref-audio-track` argument instead of setting `reference_audio` in the map:
 ```bash
-bash skills/tts/scripts/tts.sh render --srt input.srt --voice-map vm.json --ref-audio-track original_video.mp4 -o output.wav
+python3 skills/tts/scripts/tts.py render --srt input.srt --voice-map vm.json --ref-audio-track original_video.mp4 -o output.wav
 ```
 
 See `examples/` for full samples.
@@ -103,8 +89,8 @@ See `examples/` for full samples.
 ### Step 3: Render
 
 ```bash
-bash skills/tts/scripts/tts.sh render --srt input.srt --voice-map vm.json -o output.wav
-bash skills/tts/scripts/tts.sh render --srt input.srt --voice-map vm.json --backend noiz --auto-emotion -o output.wav
+python3 skills/tts/scripts/tts.py render --srt input.srt --voice-map vm.json -o output.wav
+python3 skills/tts/scripts/tts.py render --srt input.srt --voice-map vm.json --backend noiz --auto-emotion -o output.wav
 ```
 
 ## When to Choose Which
@@ -122,14 +108,14 @@ bash skills/tts/scripts/tts.sh render --srt input.srt --voice-map vm.json --back
 
 ## Guest Mode (no API key)
 
-When no API key is configured, `tts.sh speak` automatically falls back to **guest mode** — a limited Noiz endpoint that requires no authentication. Guest mode only supports `--voice-id`, `--speed`, and `--format`; voice cloning, emotion, duration, and timeline rendering are not available.
+When no API key is configured, `tts.py` automatically falls back to **guest mode** — a limited Noiz endpoint that requires no authentication. Guest mode only supports `--voice-id`, `--speed`, and `--format`; voice cloning, emotion, duration, and timeline rendering are not available.
 
 ```bash
 # Guest mode (auto-detected when no API key is set)
-bash skills/tts/scripts/tts.sh speak -t "Hello" --voice-id 883b6b7c -o hello.wav
+python3 skills/tts/scripts/tts.py -t "Hello" --voice-id 883b6b7c -o hello.wav
 
 # Explicit backend override to use kokoro instead
-bash skills/tts/scripts/tts.sh speak -t "Hello"  --backend kokoro
+python3 skills/tts/scripts/tts.py -t "Hello" --backend kokoro
 ```
 
 Available guest voices (15 built-in):
@@ -155,7 +141,7 @@ Available guest voices (15 built-in):
 ## Requirements
 
 - `ffmpeg` in PATH (timeline mode only)
-- Get your API key at [developers.noiz.ai/api-keys](https://developers.noiz.ai/api-keys), then run `bash skills/tts/scripts/tts.sh config --set-api-key YOUR_KEY` (guest mode works without a key but has limited features)
+- Get your API key at [Noiz Developer](https://developers.noiz.ai/api-keys), then run `python3 skills/tts/scripts/tts.py config --set-api-key YOUR_KEY` (guest mode works without a key but has limited features)
 - Kokoro: if already installed, pass `--backend kokoro` to use the local backend
 
 ### Noiz API authentication

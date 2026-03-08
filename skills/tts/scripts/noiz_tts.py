@@ -16,6 +16,11 @@ from typing import Any, Dict, Optional
 import requests
 
 
+def normalize_output_format(output_format: str) -> str:
+    # "ogg" is treated as an alias to opus.
+    return "opus" if output_format == "ogg" else output_format
+
+
 def normalize_api_key_base64(api_key: str) -> str:
     key = api_key.strip()
     if not key:
@@ -69,9 +74,10 @@ def synthesize(
     if duration is not None and not (0 < duration <= 36):
         raise ValueError("duration must be in range (0, 36] seconds")
     url = f"{base_url.rstrip('/')}/text-to-speech"
+    normalized_format = normalize_output_format(output_format)
     data: Dict[str, str] = {
         "text": text,
-        "output_format": output_format,
+        "output_format": normalized_format,
         "speed": str(speed),
     }
     if voice_id:
@@ -140,10 +146,11 @@ def synthesize_guest(
         root = root[:-3]
     url = f"{root}/api/v1/guest/text-to-speech"
 
+    normalized_format = normalize_output_format(output_format)
     data: Dict[str, str] = {
         "text": text,
         "voice_id": voice_id,
-        "output_format": output_format,
+        "output_format": normalized_format,
         "speed": str(speed),
     }
     resp = requests.post(url, data=data, timeout=timeout)
@@ -172,7 +179,7 @@ def main() -> int:
     parser.add_argument("--reference-audio", help="Local audio for voice cloning")
     parser.add_argument("--output", required=True)
     parser.add_argument("--base-url", default="https://noiz.ai/v1")
-    parser.add_argument("--output-format", choices=["wav", "mp3", "opus"], default="wav")
+    parser.add_argument("--output-format", choices=["wav", "mp3", "opus", "ogg"], default="wav")
     parser.add_argument("--auto-emotion", action="store_true")
     parser.add_argument("--emo", help='Emotion JSON string, e.g. \'{"Joy":0.5}\'')
     parser.add_argument("--speed", type=float, default=1.0)
