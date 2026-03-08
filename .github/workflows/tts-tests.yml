@@ -1,20 +1,25 @@
 name: TTS Tests
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "skills/tts/scripts/**.py"
+      - ".github/workflows/tts-tests.yml"
   pull_request:
     paths:
       - "skills/tts/scripts/**.py"
+      - ".github/workflows/tts-tests.yml"
 
 jobs:
   test:
-    name: "Python ${{ matrix.python-version }}"
-    runs-on: ubuntu-latest
+    name: "Python ${{ matrix.python-version }} / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.6", "3.8", "3.11"]
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.8", "3.11", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
