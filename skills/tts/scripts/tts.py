@@ -20,12 +20,8 @@ from typing import List, Optional
 
 SCRIPT_DIR = Path(__file__).parent
 NOIZ_KEY_FILE = Path.home() / ".noiz_api_key"
-DEFAULT_NOIZ_REF_AUDIO_URL_CN = (
-    "https://storage.googleapis.com/noiz_audio_public/resource/audio/ref_cn_fm1.WAV"
-)
-DEFAULT_NOIZ_REF_AUDIO_URL_EN = (
-    "https://noiz.ai/resource/img/tts/landing_creative1.mp3"
-)
+DEFAULT_NOIZ_REF_AUDIO_URL_CN = ("/root/.nanobot/workspace/my_voice.mp3")
+DEFAULT_NOIZ_REF_AUDIO_URL_EN = ("/root/.nanobot/workspace/my_voice.mp3")
 
 # ── API key helpers ───────────────────────────────────────────────────
 
